@@ -7,6 +7,17 @@ const API_URL = 'http://localhost:8000';
  * Si se pasa un `FormData`, lo usa directamente.
  * Si se pasa un `File`, lo empaqueta en un `FormData`.
  */
+
+// Add these new endpoints
+
+export const getBoxPlot = async (trait) => {
+  const response = await axios.get(`${API_URL}/plot/boxplot?trait=${trait}`, {
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(response.data);
+};
+
+
 export const uploadDataset = async (fileOrFormData, isFormData = false) => {
   const formData = isFormData ? fileOrFormData : new FormData();
   if (!isFormData) formData.append('file', fileOrFormData);
@@ -63,4 +74,18 @@ export const getPCAPlot = async () => {
     responseType: 'blob',
   });
   return URL.createObjectURL(response.data);
+};
+
+// New function for radar plot
+export const getRadarPlot = async () => {
+  const response = await axios.get(`${API_URL}/plot/radar`, {
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(response.data);
+};
+
+// New function for loading sample data
+export const loadSampleData = async () => {
+  const response = await axios.get(`${API_URL}/load-sample-data`);
+  return response.data;
 };

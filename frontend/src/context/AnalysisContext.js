@@ -1,3 +1,4 @@
+// src/context/AnalysisContext.js
 import React, { createContext, useState, useContext } from 'react';
 
 const AnalysisContext = createContext();
@@ -11,6 +12,8 @@ export const AnalysisProvider = ({ children }) => {
     scale: true,
     pcaComponents: null
   });
+  const [personalityTypes, setPersonalityTypes] = useState({});
+  const [history, setHistory] = useState([]);
 
   return (
     <AnalysisContext.Provider 
@@ -20,7 +23,11 @@ export const AnalysisProvider = ({ children }) => {
         results, 
         setResults, 
         config, 
-        setConfig 
+        setConfig,
+        personalityTypes,
+        setPersonalityTypes,
+        history,
+        setHistory
       }}
     >
       {children}

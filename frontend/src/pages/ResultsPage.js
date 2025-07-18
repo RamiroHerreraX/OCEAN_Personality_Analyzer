@@ -7,7 +7,11 @@ import {
   getClusterDistributionPlot,
   getTraitDistributionPlot,
   getPCAPlot,
+  getRadarPlot,
+  getBoxPlot
 } from '../services/api';
+import { getTraitName } from '../utils/traits';
+import PersonalityTypeCard from '../components/PersonalityTypeCard';
 
 import {
   Box,
@@ -29,12 +33,16 @@ import {
   Alert,
 } from '@mui/material';
 
+// Importaciones de iconos
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
+import RadarIcon from '@mui/icons-material/Radar';
+import ShowChartIcon from '@mui/icons-material/ShowChart'; // Usaremos este para box plots
+import PsychologyIcon from '@mui/icons-material/Psychology';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -50,7 +58,7 @@ function TabPanel({ children, value, index }) {
 }
 
 const ResultsPage = ({ setLoading }) => {
-  const { results, setResults } = useAnalysis();
+  const { results, setResults, personalityTypes, setPersonalityTypes } = useAnalysis();
   const [tabValue, setTabValue] = useState(0);
   const [clusterPlot, setClusterPlot] = useState(null);
   const [extPlot, setExtPlot] = useState(null);
@@ -59,7 +67,15 @@ const ResultsPage = ({ setLoading }) => {
   const [csnPlot, setCsnPlot] = useState(null);
   const [opnPlot, setOpnPlot] = useState(null);
   const [pcaPlot, setPcaPlot] = useState(null);
+  const [radarPlot, setRadarPlot] = useState(null);
+  const [boxPlots, setBoxPlots] = useState({});
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (results?.personality_types) {
+      setPersonalityTypes(results.personality_types);
+    }
+  }, [results, setPersonalityTypes]);
 
   useEffect(() => {
     if (!results) {
@@ -84,13 +100,41 @@ const ResultsPage = ({ setLoading }) => {
       const loadPlots = async () => {
         setLoading(true);
         try {
-          setClusterPlot(await getClusterDistributionPlot());
-          setExtPlot(await getTraitDistributionPlot('EXT'));
-          setEstPlot(await getTraitDistributionPlot('EST'));
-          setAgrPlot(await getTraitDistributionPlot('AGR'));
-          setCsnPlot(await getTraitDistributionPlot('CSN'));
-          setOpnPlot(await getTraitDistributionPlot('OPN'));
-          setPcaPlot(await getPCAPlot());
+          const [
+            clusterPlot, 
+            extPlot, 
+            estPlot, 
+            agrPlot, 
+            csnPlot, 
+            opnPlot, 
+            pcaPlot,
+            radarPlot
+          ] = await Promise.all([
+            getClusterDistributionPlot(),
+            getTraitDistributionPlot('EXT'),
+            getTraitDistributionPlot('EST'),
+            getTraitDistributionPlot('AGR'),
+            getTraitDistributionPlot('CSN'),
+            getTraitDistributionPlot('OPN'),
+            getPCAPlot(),
+            getRadarPlot()
+          ]);
+          
+          setClusterPlot(clusterPlot);
+          setExtPlot(extPlot);
+          setEstPlot(estPlot);
+          setAgrPlot(agrPlot);
+          setCsnPlot(csnPlot);
+          setOpnPlot(opnPlot);
+          setPcaPlot(pcaPlot);
+          setRadarPlot(radarPlot);
+
+          // Load box plots for each trait
+          const boxPlotData = {};
+          for (const trait of ['EXT', 'EST', 'AGR', 'CSN', 'OPN']) {
+            boxPlotData[trait] = await getBoxPlot(trait);
+          }
+          setBoxPlots(boxPlotData);
         } catch (err) {
           console.error(err);
           setError('Error al cargar las visualizaciones');
@@ -239,7 +283,10 @@ const ResultsPage = ({ setLoading }) => {
         <Tab icon={<PieChartIcon />} label="Responsabilidad" />
         <Tab icon={<BarChartIcon />} label="Apertura" />
         <Tab icon={<ScatterPlotIcon />} label="PCA" />
+        <Tab icon={<RadarIcon />} label="Radar" />
+        <Tab icon={<ShowChartIcon />} label="Box Plots" />
         <Tab icon={<TableChartIcon />} label="Datos" />
+        <Tab icon={<PsychologyIcon />} label="Tipos Personalidad" />
       </Tabs>
 
       {[
@@ -271,10 +318,67 @@ const ResultsPage = ({ setLoading }) => {
               <CircularProgress />
             </Box>
           )}
+          {index === 5 && (
+            <Box mt={2}>
+              <Typography variant="body2" color="text.secondary">
+                Esta visualización muestra la reducción dimensional de los datos usando PCA. 
+                Los colores representan los diferentes clusters y las X marcan los centroides.
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
       ))}
 
       <TabPanel value={tabValue} index={6}>
+        <Typography variant="h6" gutterBottom>Perfil de Personalidad por Cluster</Typography>
+        {radarPlot ? (
+          <Box sx={{ height: 500, display: 'flex', justifyContent: 'center' }}>
+            <img src={radarPlot} alt="Radar Plot" style={{ maxHeight: '100%' }} />
+          </Box>
+        ) : (
+          <CircularProgress />
+        )}
+        <Box mt={2}>
+          <Typography variant="body1">
+            Este gráfico radar muestra el perfil promedio de cada cluster en los 5 rasgos OCEAN.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mt={1}>
+            Los valores más cercanos al borde exterior indican mayor presencia del rasgo.
+          </Typography>
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={7}>
+        <Typography variant="h6" gutterBottom>Distribución de Rasgos por Cluster</Typography>
+        {Object.keys(boxPlots).length > 0 ? (
+          <Grid container spacing={2}>
+            {['EXT', 'EST', 'AGR', 'CSN', 'OPN'].map((trait) => (
+              <Grid item xs={12} md={6} key={trait}>
+                <Typography variant="subtitle1" align="center">
+                  {getTraitName(trait)}
+                </Typography>
+                <Box sx={{ height: 300 }}>
+                  <img 
+                    src={boxPlots[trait]} 
+                    alt={`Box Plot ${trait}`} 
+                    style={{ maxHeight: '100%', width: '100%' }} 
+                  />
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <CircularProgress />
+        )}
+        <Box mt={2}>
+          <Typography variant="body2" color="text.secondary">
+            Los diagramas de caja muestran la distribución de cada rasgo por cluster.
+            La línea central representa la mediana, la caja el rango intercuartílico y los bigotes el rango total.
+          </Typography>
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={8}>
         <Typography variant="h6" gutterBottom>Datos de Muestra (primeras 50 filas)</Typography>
         {results?.sample_data ? (
           <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
@@ -305,6 +409,22 @@ const ResultsPage = ({ setLoading }) => {
             <CircularProgress />
           </Box>
         )}
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={9}>
+        <Typography variant="h6" gutterBottom>Tipos de Personalidad por Cluster</Typography>
+        <Grid container spacing={2}>
+          {Object.entries(personalityTypes).map(([cluster, type]) => (
+            <Grid item xs={12} sm={6} md={4} key={cluster}>
+              <PersonalityTypeCard cluster={cluster} type={type} />
+            </Grid>
+          ))}
+        </Grid>
+        <Box mt={2}>
+          <Typography variant="body2" color="text.secondary">
+            Cada cluster ha sido asignado a un tipo de personalidad basado en sus rasgos dominantes OCEAN.
+          </Typography>
+        </Box>
       </TabPanel>
     </Box>
   );
