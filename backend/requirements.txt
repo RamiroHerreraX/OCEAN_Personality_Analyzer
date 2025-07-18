@@ -1,0 +1,12 @@
+fastapi==0.95.1          # Última estable y compatible
+uvicorn==0.22.0          # Compatible con FastAPI reciente
+pandas==2.0.3            # Soporta Python 3.11, mejoras y estabilidad
+numpy==1.24.4            # Compatible, optimizado y soportado
+scikit-learn==1.2.2      # Versión estable compatible con Python 3.11
+python-multipart==0.0.6  # Última versión menor estable
+matplotlib==3.7.1        # Soporta Python 3.11 y mejoras visuales
+seaborn==0.12.2          # Versión estable para visualización
+python-dotenv==1.0.0     # Última versión estable
+reportlab==3.6.13        # Estable y compatible
+openpyxl==3.1.2          # Compatible para manejo Excel
+joblib==1.2.0            # Compatible y estable para serialización
