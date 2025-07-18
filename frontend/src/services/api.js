@@ -2,16 +2,21 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:8000';
 
-export const uploadDataset = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  
+/**
+ * Sube un archivo nuevo o reutilizado.
+ * Si se pasa un `FormData`, lo usa directamente.
+ * Si se pasa un `File`, lo empaqueta en un `FormData`.
+ */
+export const uploadDataset = async (fileOrFormData, isFormData = false) => {
+  const formData = isFormData ? fileOrFormData : new FormData();
+  if (!isFormData) formData.append('file', fileOrFormData);
+
   const response = await axios.post(`${API_URL}/upload/`, formData, {
     headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+      'Content-Type': 'multipart/form-data',
+    },
   });
-  
+
   return response.data;
 };
 
@@ -27,36 +32,35 @@ export const getResults = async () => {
 
 export const exportToExcel = async () => {
   const response = await axios.get(`${API_URL}/export/excel`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return response.data;
 };
 
 export const exportToPDF = async () => {
   const response = await axios.get(`${API_URL}/export/pdf`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return response.data;
 };
 
 export const getClusterDistributionPlot = async () => {
   const response = await axios.get(`${API_URL}/plot/cluster_distribution`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return URL.createObjectURL(response.data);
 };
 
 export const getTraitDistributionPlot = async (trait) => {
   const response = await axios.get(`${API_URL}/plot/trait_distribution?trait=${trait}`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return URL.createObjectURL(response.data);
 };
 
 export const getPCAPlot = async () => {
   const response = await axios.get(`${API_URL}/plot/pca`, {
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return URL.createObjectURL(response.data);
 };
-

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAnalysis } from '../context/AnalysisContext';
 import { uploadDataset } from '../services/api';
@@ -17,18 +17,49 @@ import {
   TableHead,
   TableRow,
   Grid,
+  Stack,
 } from '@mui/material';
 
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReplayIcon from '@mui/icons-material/Replay';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const UploadPage = ({ setLoading }) => {
-  const { dataset, setDataset } = useAnalysis();
+  const { setDataset } = useAnalysis();
   const [file, setFile] = useState(null);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
+  const [uploadHistory, setUploadHistory] = useState([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedHistory = JSON.parse(localStorage.getItem('uploadHistory')) || [];
+    setUploadHistory(savedHistory);
+  }, []);
+
+  const toBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+
+  const saveToHistory = async (file) => {
+    const base64 = await toBase64(file);
+    const newEntry = {
+      name: file.name,
+      timestamp: new Date().toISOString(),
+      content: base64,
+      type: file.type,
+    };
+
+    const updatedHistory = [newEntry, ...uploadHistory.slice(0, 9)];
+    setUploadHistory(updatedHistory);
+    localStorage.setItem('uploadHistory', JSON.stringify(updatedHistory));
+  };
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -36,20 +67,57 @@ const UploadPage = ({ setLoading }) => {
 
   const handleUpload = async () => {
     if (!file) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      const result = await uploadDataset(file);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const result = await uploadDataset(formData, true);
+      setDataset(result.preview);
+      setStats(result.stats);
+
+      await saveToHistory(file);
+      setFile(null);
+
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'Error al cargar el archivo');
+      setLoading(false);
+    }
+  };
+
+  const handleReuse = async (item) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(item.content);
+      const blob = await response.blob();
+      const reusedFile = new File([blob], item.name, { type: item.type });
+
+      const formData = new FormData();
+      formData.append('file', reusedFile);
+
+      const result = await uploadDataset(formData, true);
       setDataset(result.preview);
       setStats(result.stats);
 
       setLoading(false);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al cargar el archivo');
+      console.error(err);
+      setError('Error al reutilizar el archivo');
       setLoading(false);
     }
+  };
+
+  const handleDelete = (index) => {
+    const updatedHistory = [...uploadHistory];
+    updatedHistory.splice(index, 1);
+    setUploadHistory(updatedHistory);
+    localStorage.setItem('uploadHistory', JSON.stringify(updatedHistory));
   };
 
   const handleContinue = () => {
@@ -67,16 +135,56 @@ const UploadPage = ({ setLoading }) => {
       </Typography>
 
       {error && (
-        <Paper
-          elevation={2}
-          sx={{
-            p: 2,
-            mb: 2,
-            backgroundColor: '#ffebee',
-          }}
-        >
+        <Paper elevation={2} sx={{ p: 2, mb: 2, backgroundColor: '#ffebee' }}>
           <Typography color="error">{error}</Typography>
         </Paper>
+      )}
+
+      {/* Historial */}
+      {uploadHistory.length > 0 && (
+        <Box mb={4}>
+          <Typography variant="h6">📜 Historial de Archivos Subidos</Typography>
+          <TableContainer component={Paper} sx={{ mt: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nombre del Archivo</TableCell>
+                  <TableCell>Fecha y Hora</TableCell>
+                  <TableCell>Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {uploadHistory.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{item.name}</TableCell>
+                    <TableCell>{new Date(item.timestamp).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ReplayIcon />}
+                          onClick={() => handleReuse(item)}
+                        >
+                          Usar
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<DeleteIcon />}
+                          onClick={() => handleDelete(index)}
+                        >
+                          Eliminar
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
       )}
 
       <Grid container spacing={4}>
